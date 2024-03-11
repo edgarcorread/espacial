@@ -1,0 +1,410 @@
+---
+title: "PARCIAL I  ESTADÍSTICA ESPACIAL"
+author: "EDGAR CORREA-WILLIAM ESCARRAGA"
+output:
+  pdf_document: default
+  html_document: default
+---
+### LIBRERIAS ###
+
+
+
+ Se cargan las respectivas librerias que se requieren
+
+```{r library}
+library(mvtnorm)
+library(scatterplot3d)
+library(car)
+library(akima)
+library(gstat)
+library(geoR)
+library(lattice)
+library(maptools)
+library(sp)
+library(spatial)
+library(graphics)
+library(BCA)
+library(aplpack)
+library(scatterplot3d)
+library(geoR)
+library(fields)
+library(rgdal)
+require(maptools)
+rm(list=ls())
+
+
+```
+### DATOS ###
+Los datos sobre los cuales se realiza el analisis son el resultado de un estudio de geofísica, donde se realizaron 209 Sondeos Eléctricos Verticales(SEV) en el Acuífero Sur del Tolima – Municipios de  Natagaima, Coyaima, Ortega, Prado, Purificación, Saldaña, Suárez, Guamo y San Luis en el Departamento del Tolima.
+
+Los SEV de ejecutaron en una área de 1400 km2 donde se tomaron datos de SEV cada 2.5 km2 dentro de la zona de estudio del denominado  Acuífero del Sur del Tolima, en este caso tomamos X como longitud (coordenadas norte-sur)  y Y como las latitud (coordenadas este-oeste).
+
+En el estudio se tomaron mediciones a 5 profundidades diferentes para nuestro caso tenemos en cuenta solo una y tomamos la resistividad ohm-m.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrrrr}
+  \hline
+ & ID & SEV & Y & X & Resistividad ohm-m &  &   &   &   \\ 
+  \hline
+ &  &  & Este &  Norte&  50m  & 100m & 150m  & 200m & 250m \\ 
+   & 1.00 & 1.00 & 876166.36 & 870028.31 & 3.20 & 13.10 & 4.00 & 4.00 & 4.00 \\ 
+   & 2.00 & 2.00 & 877645.17 & 871494.17 & 4.40 & 8.50 & 8.50 & 3.30 & 3.30 \\ 
+   & 3.00 & 3.00 & 878262.24 & 872310.12 & 5.30 & 7.40 & 7.40 & 7.40 & 7.40 \\ 
+   & 4.00 & 4.00 & 876787.84 & 868380.54 & 5.40 & 5.40 & 12.80 & 12.80 & 12.80 \\ 
+   & 5.00 & 5.00 & 876903.16 & 873233.56 & 4.40 & 4.40 & 4.40 & 4.40 & 4.40 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+
+
+### IMPORTAR DATOS Y DESCRIPTIVA###
+Se realiza la exportacion de los datos y se realiza el grafico 
+
+```{R}
+re <- read.csv2("~/Desktop/espacial/res.csv")
+names(re)
+head(re)
+summary(re)
+plot(re)
+
+```
+
+Se evidencian  histogramas por variables
+
+```{r, plot 1}
+hist(re[,1],freq=T)
+```
+ 
+
+```{r, plot 2 }
+hist(re[,2],freq=T)
+```
+
+```{r, plot 3}
+hist(re[,3],freq=F)
+scatterplotMatrixBCA(re,diagonal="density")
+
+```
+
+### GRILLAS###
+
+Se realizan las respectivas grillas
+
+```{r, plotsd}
+
+grillas=interp(re$x,re$y,re$z)
+par(mfrow=c(1,1))
+persp(grillas$x,grillas$y,grillas$z,xlab="Este",ylab="Norte",zlab="Nivel freatico",phi=30,theta=20,col="lightblue",expand=.5, ticktype="detailed")
+drape.plot(grillas$x,grillas$y,grillas$z,xlab="Este",ylab="Norte",zlab="z",theta=45,col=topo.colors(64),expand=.5, ticktype="detailed")
+drape.plot(grillas$x,grillas$y,grillas$z,xlab="Este",ylab="Norte",zlab="z",theta=-10,col=heat.colors(64),expand=.5, ticktype="detailed")
+drape.plot(grillas$x,grillas$y,grillas$z,xlab="Este",ylab="Norte",zlab="z",theta=60,col=terrain.colors(64),expand=.5, ticktype="detailed") 
+contour(grillas,nlevels=20,col=rainbow(20))
+filled.contour(grillas,col=heat.colors(10))
+levelplot(grillas$z)
+image(grillas$z)
+
+```
+
+
+### GEODATA
+
+Se expresan los datos en forma de geodata
+
+```{r, grillas}
+baseg=as.geodata(re)
+names(baseg)
+summary(baseg)
+```
+
+
+### ANÁLISIS DESCRIPTIVO GEODATA
+
+Con el grafico de Geodata se busca evidenciar la presencia de tendecia 
+
+```{r geodata}
+ plot(baseg)
+plot(baseg, lowess = TRUE, scatter3d = TRUE) 
+```
+ 
+
+
+```{r,analisis geodata3}
+points(baseg)
+points(baseg, col = "gray", pt.divide = "equal")
+```
+
+
+
+```{r, varplot}
+plot(baseg)
+```
+
+
+###VARIOGRAMAS EMPIRICOS 
+
+```{r , calculo del variograma empirico con el modelo 1}
+par(mfrow=c(1,1))
+plot(variog(baseg), type = "b")
+res1.v <- variog(baseg,pairs.min=100,max.dist = 50000)
+plot(res1.v, type = "b")
+plot(variog(baseg,pairs.min=100,max.dist = 50000))
+
+```
+
+###  VARIOGRAMA 
+```{r,VARIOGRAMA}
+par(mfrow=c(1,1))
+v1=variog(baseg,max.dist = 50000,pairs.min=100,estimator.type="modulus")
+plot(v1)
+names(v1)
+v1$u
+v1$v
+
+```
+### ISOTROPIA
+```{r,iso}
+par(mfrow=c(2,2))
+vari=variog(baseg,max.dist = 50000,pairs.min=100,dir=0)
+plot(vari)
+vari1=variog(baseg,max.dist = 50000,pairs.min=100,dir=pi/2)
+plot(vari1)
+vari2=variog(baseg,max.dist = 50000,pairs.min=100,dir=pi/3)
+plot(vari2)
+vari3=variog(baseg,max.dist = 50000,pairs.min=100,dir=pi/4)
+plot(vari3)
+```
+
+
+###  MODELOS
+
+
+```{r}
+EfectoHueco=function(h,sigma2,a){sigma2-ifelse(h>0,sigma2*((a)*h^(-1))*sin(h*(a)^(-1)),sigma2)}
+esf=function(x,sigma2,a){ifelse(x<a,sigma2*(1.5*(x/a)-0.5*(x/a)^3),sigma2)}
+CuadRac=function(x,sigma2,a){sigma2*(19*(x/a)^2/(1+19*(x/a)^2))}
+curve(CuadRac(x,4,5),0,60,ylim=c(0,5),col=1,main="",xlab="",ylab="",lty=1,lwd=2)
+curve(esf(x,4,5),col=2,main="",xlab="",ylab="",add=T,lty=2,lwd=2)
+curve(4-4*exp(-x/5),col=3,main="",xlab="",ylab="",add=T,lty=3,lwd=2)
+curve(4-4*exp(-x^2/25),col=4,main="",xlab="",ylab="",add=T,lty=4,lwd=2)
+curve(EfectoHueco(x,4,5),col=5,main="",xlab="",ylab="",add=T,lty=5,lwd=2)
+title(expression(theta * "=(4,5)"),col.main=1,cex.main = 1.5,xlab="h",cex.lab=1.5,col.lab=1,mgp=c(2.2,2.2,2))
+legend(19,3,c("Cuadra R.","Esférico","Expo","Gaussiano","Wave"),col=1:5,lty=1:5,lwd=2)
+loc <- par("usr")
+text(loc[1], loc[4], expression(hat(gamma)), xpd = T, adj = c(3.,5.8),cex=2)
+```
+
+
+### VARIOGRAMA EMPIRICO 
+
+```{r,eye}
+ey =eyefit(v1)
+
+ey
+
+#matern 
+#sigma=2.33
+#phi=36382
+#tau=3.20
+#kappa=0.5
+```
+
+### VARIOGRAMA TEORICO 
+```{r,VT}
+# minimos cuadrados
+ini1=c(2.32,36382.03)
+va1= variofit(v1, "matern", ini =ini1, fix.nugget = T,nugget=3.2 , weights = "equal")
+MCO=variofit(v1, "matern", ini = ey,   weights = "equal")
+plot(v1)
+lines(MCO)
+
+#ve1= variofit(v1, "matern", ini =ini1, fix.nugget = T,nugget=3.2 , weights = "npairs")
+MCPn=variofit(v1, "matern", ini = ey,   weights = "npairs")
+plot(v1)
+lines(MCPn)
+MCPn
+
+#vi1= variofit(v1, "matern", ini =ini1, fix.nugget = T,nugget=3.2 , weights = "cressie")
+MCPcre=variofit(v1, "matern", ini = ey,   weights = "cressie")
+summary(MCPcre)
+plot(v1)
+lines(MCPcre, col=6)
+MCPcre
+
+
+#maxima verosimilitud
+MV=likfit(baseg, cov.model = "matern",  ini.cov.pars = ey, fix.nugget = F, lik.method = "ML")
+summary(MV)
+plot(v1)
+lines(MV)
+
+names(MV)
+MV$beta
+
+#MV1=likfit(baseg, cov.model = "matern",  ini.cov.pars = ini1, fix.nugget = T,nugget=3.3, lik.method = "ML")
+
+
+#MVR1=likfit(baseg, cov.model = "matern",  ini.cov.pars = ini1, fix.nugget = T,nugget=3.2, lik.method = "REML")
+
+MVR=likfit(baseg, cov.model = "matern",  ini.cov.pars = ey, fix.nugget = F, lik.method = "REML")
+
+plot(v1)
+lines(MCO, col=5)
+lines(MCPn, col=6)
+lines(MCPcre, col=7)
+lines(MV, col=8)
+lines(MVR, col=9)
+legend(23000,3, legend = c("MCO","MCPn","MCPcre", "Ml","REML"), col = 5:9, lty = c(1,1))
+```
+
+```{r, VT1}
+#EfectoHueco=function(h,sigma2,a){sigma2+3.0-ifelse(h>0,sigma2*((a)*h^(-1))*sin(h*(a)^(-1)),sigma2)}
+#curve(EfectoHueco(x,0.68,5277),col=8,main="",xlab="",ylab="",add=T,lty=5,lwd=2)
+
+```
+
+## RESULTADOS
+```{r,resultados}
+summary(MCO)
+summary(MCPn)
+summary(MCPcre)
+summary(MV)
+summary(MVR)
+
+data.frame(method = c("MCO","MCPn","MCPcre", "Ml","REML"), 
+  sigma2 = c(2.0088, 2.055, 2.56654,MV$sigmasq, MVR$sigmasq), 
+  phi = c(18015.49493, 17732.27167855, 36382.50670,MV$phi,MVR$phi), 
+  tau2 = c(2.994, 2.953, 3.20,MV$tausq,MVR$tausq), 
+  AIC = c(NA,NA,NA, MV$AIC, MVR$AIC), 
+  BIC = c(NA, NA,NA,MV$BIC, MVR$BIC))
+
+
+```
+
+### Cuadrado medio residual
+
+ $\frac{\sum\hat\gamma(h_i)-\gamma(h_i,\hat\theta)^2}{n}$
+ 
+```{r, cuadra}
+MSE=function(modelo){
+  est=modelo$nugget+modelo$cov.pars[1]-cov.spatial(v1$u,
+cov.pars = modelo$cov.pars,cov.model=modelo$cov.model,
+kappa=modelo$kappa)
+ mse=mean((est-v1$v)^2)
+return(mse)
+}
+
+MSE(MCO)
+MSE(MCPn)
+MSE(MCPcre)
+MSE(MV)
+MSE(MVR)
+
+```
+
+## KRIGING
+
+
+```{r,KRI}
+
+dep<-readOGR("~/Desktop/espacial/depto.shp", layer = "depto")
+mun <- readOGR("~/Desktop/espacial/mpio.shp", layer = "mpio")
+toli <- readOGR("~/Desktop/espacial/TOLIMA_SUELOS_VF.shp", layer = "TOLIMA_SUELOS_VF")
+
+
+poligonos = polygons(toli)
+plot(poligonos)
+
+poligonos1 = polygons(mun)
+plot(poligonos1)
+
+
+poligonos2 = polygons(dep)
+plot(poligonos2)
+
+
+muestra = spsample(poligonos,n=10000, "regular")
+muestra1= as.data.frame(muestra)
+names(muestra1)= c("Latitud", "Longitud")
+gridded(muestra1) = c("Latitud", "Longitud")
+plot(muestra1)
+
+
+
+```
+
+```{r,KRU2}
+
+xy = SpatialPoints(re[c("x", "y")])
+coordinates(re) <- c("x", "y")
+ve.fit1wav = as.vgm.variomodel(MCO)
+Z<-re$z
+zi<-as.vector(re$z)
+
+```
+
+```{r,krukru}
+ku=krige(Z~1,re , newdata = muestra1, model = ve.fit1wav)
+
+
+```
+
+```{r,krkrkrk}
+
+li = list("sp.polygons", poligonos)
+pts = list("sp.points", xy, pch = 24, cex = 0.3, col="red", bg="red")
+```
+
+
+```{r,KRU3}
+spplot(ku, c("var1.pred"),as.table = TRUE, main = "Mapa de predicciones ", sp.layout = list(li, pts), contour = FALSE,
+       labels = FALSE, pretty = TRUE, col = "black", col.regions = terrain.colors(100))
+
+spplot(ku, c("var1.pred"),as.table = TRUE, main = "Mapa de predicciones ", sp.layout = list(li, pts),  col = "black", col.regions = terrain.colors(100))
+
+
+
+spplot(ku, c("var1.var"), as.table = TRUE, main = " ", sp.layout = list(li, pts), contour = FALSE,
+       labels = FALSE, pretty = TRUE, col = "black", col.regions = terrain.colors(100))
+
+spplot(ku, c("var1.var"), as.table = TRUE, main = " ", sp.layout = list(li, pts), contour = FALSE,
+       labels = FALSE, pretty = TRUE, col = "black", col.regions = bpy.colors(30))
+
+spplot(ku, c("var1.var"),as.table = TRUE, main = "Varianzas ", sp.layout = list(li, pts),  col = "black", col.regions = bpy.colors(30))
+
+spplot(ku)
+```
+
+## OPTIM-ANEXO
+
+
+```{r,optim}
+
+#separables mas comunes: gaussiano y exponencial   p=(sigma,a,b)
+Gaussiano=function(p,h,u){p[1]^2*exp(-p[2]^2*u^2-p[3]^2*h^2)}
+Exponencial=function(p,h,u){p[1]^2*exp(-p[2]^2*u-p[3]^2*h)} 
+
+LV<-function(p,h,u,modelo,z){0.5*(length(z)*log(2*pi)+log(det(modelo(p,h=rezagos_esp,u=rezagos_temp)))+t(z)%*%solve(modelo(p,h=rezagos_esp,u=rezagos_temp))%*%z)}
+
+lo <- c(0.001,0.001,0.01)                                                       #cotas inferiores
+p0 <- c(0.8,0.5,0.9)                                                            #valores iniciales
+
+#ejemplo
+x=c(11.05,11.05,11.05,2.5,2.5,2.5,3.6,3.6,3.6,4.5,4.5,4.5,6.7,6.7,6.7,7.6,7.6,7.6,7.9,7.9,7.9,8.9,8.9,8.9,9,9,9,4,4,4,3.4,3.4,3.4)
+y=c(1,1,1,2,2,2,3,3,3,6,6,6,5,5,5,7,7,7,8,8,8,9,9,9,3.5,3.5,3.5,7,7,7,4,4,4)
+t=c(1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3)
+z=c(22,26,35,44,53,42,21,15,26,37,56,69,76,74,42,26,15,14,23,37,48,57,54,61,16.8,27.4,39.1,23,35,48.57,21.14,35.6,17.1)
+
+coordenada=data.frame(x,y)
+#matriz de NxN con todos los rezagos espaciales
+rezagos_esp=as.matrix(dist(coordenada))
+
+#matriz de NxN con todos los rezagos temporales
+rezagos_temp=as.matrix(dist(t))
+
+LV(c(1,1,1),h=rezagos_esp,u=rezagos_temp,modelo=Gaussiano,z=z)  #ejemplo de calculo de función de verosimilitud
+
+estima=optim(p0,LV,h=rezagos_esp,u=rezagos_temp,modelo=Gaussiano,z=z,hessian = T,lower = lo,upper = c(Inf,Inf,Inf),method = "L-BFGS-B") # se le puede dar la opcion de la matriz hessiana
+sqrt(diag(solve(estima$hessian)))
+```
